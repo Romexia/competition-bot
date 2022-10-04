@@ -5,7 +5,7 @@ import java.util.Map;
 
 public class CompetitionData {
 	/**
-	 * Map of Ticket # to {@link Submission}.
+	 * Map of Author ID to {@link Submission}.
 	 */
 	private final Map<String, Submission> submissions = new HashMap<>();
 	/**

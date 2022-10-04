@@ -41,12 +41,10 @@ public class BotLauncher {
 
 		for (Message m : dataChannel.getIterableHistory()) {
 			String[] c = m.getContentRaw().split(" ");
-			// Message ID in the data channel (m.getId()) is the ticket number. C[1] is the
-			// submission ID, and c[0] is the author ID. We picked this format for the data
-			// channel's messages.
-			competitionData.getSubmissions().put(m.getId(), new Submission(c[1], c[0]));
+			competitionData.getSubmissions().put(c[0], new Submission(c[1], c[0]));
 		}
 
+		// TODO Reverse history scanning.
 		for (Message m : priorVotesChannel.getIterableHistory()) {
 			String[] c = m.getContentRaw().split(" ");
 			if (c.length == 3) {
@@ -66,11 +64,14 @@ public class BotLauncher {
 
 				if (event instanceof MessageReceivedEvent) {
 					var e = (MessageReceivedEvent) event;
+					if (e.getAuthor().isBot())
+						return;
 					if (e.getChannelType() == ChannelType.PRIVATE) {
 						if (competitionData.getSubmissions().containsKey(e.getAuthor().getId())) {
 							e.getMessage().reply(
 									"You've already submitted a piece for this competition! You can't submit another. :(")
 									.queue();
+							return;
 						}
 						if (e.getMessage().getAttachments().size() != 1) {
 							e.getMessage().reply(
@@ -85,8 +86,7 @@ public class BotLauncher {
 								.setActionRows(ActionRow.of(Button.success("V-" + dataMessage.getId(), "Upvote!"),
 										Button.secondary("R-" + dataMessage.getId(), "Remove Vote")))
 								.complete();
-						dataMessage.editMessage(e.getAuthor().getAsMention() + ' ' + competitionMessage.getId())
-								.queue();
+						dataMessage.editMessage(e.getAuthor().getId() + ' ' + competitionMessage.getId()).queue();
 
 						competitionData.getSubmissions().put(e.getAuthor().getId(),
 								new Submission(competitionMessage.getId(), e.getAuthor().getId()));
@@ -97,20 +97,33 @@ public class BotLauncher {
 					var e = (ButtonInteractionEvent) event;
 					if (e.getComponentId().startsWith("V-") && e.getChannel().getIdLong() == COMPETITION_CHANNEL_ID) {
 						var priorVotesChannel = e.getGuild().getTextChannelById(PRIOR_VOTES_CHANNEL);
+
+						if (competitionData.getAuthorVotes().containsKey(e.getUser().getId()) && competitionData
+								.getAuthorVotes().get(e.getUser().getId()).equals(e.getComponentId().substring(2))) {
+							e.reply("You already voted for this message!!!").setEphemeral(true).queue();
+							return;
+						}
+
 						// Author ID : Ticket #
 						priorVotesChannel.sendMessage(e.getUser().getId() + ' ' + e.getComponentId().substring(2))
 								.complete();
 						competitionData.getAuthorVotes().put(e.getUser().getId(), e.getComponentId().substring(2));
-					} else if (e.getComponentId().equals("rescind")) {
-						if (e.getComponentId().startsWith("R-")
-								&& e.getChannel().getIdLong() == COMPETITION_CHANNEL_ID) {
-							priorVotesChannel
-									.sendMessage(
-											"REMOVE: " + e.getUser().getId() + ' ' + e.getComponentId().substring(2))
-									.complete();
-							competitionData.getAuthorVotes().remove(e.getUser().getId());
+						e.reply("You've voted for this.").setEphemeral(true).queue();
+						return;
+					} else if (e.getComponentId().startsWith("R-")
+							&& e.getChannel().getIdLong() == COMPETITION_CHANNEL_ID) {
+						if (!competitionData.getAuthorVotes().containsKey(e.getUser().getId())) {
+							e.reply("You don't have a vote placed anywhere yet...").setEphemeral(true).queue();
+							return;
 						}
+						priorVotesChannel
+								.sendMessage("REMOVE: " + e.getUser().getId() + ' ' + e.getComponentId().substring(2))
+								.complete();
+						e.reply("You rescinded your vote.").setEphemeral(true).queue();
+						competitionData.getAuthorVotes().remove(e.getUser().getId());
+						return;
 					}
+					e.reply("That isn't for you!").setEphemeral(true).queue();
 				}
 			}
 		});

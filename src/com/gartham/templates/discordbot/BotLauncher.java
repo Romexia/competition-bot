@@ -9,6 +9,7 @@ import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.entities.ChannelType;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.events.GenericEvent;
+import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.EventListener;
 import net.dv8tion.jda.api.interactions.components.ActionRow;
@@ -48,11 +49,15 @@ public class BotLauncher {
 
 		for (Message m : priorVotesChannel.getIterableHistory()) {
 			String[] c = m.getContentRaw().split(" ");
-			// Messages sent in the prior votes channel are Author ID : Ticket #. So if user
-			// with ID 12345 authors a vote for the message with ID 09876, then the message
-			// will say:
-			// 12345 09876
-			competitionData.getAuthorVotes().put(c[0], c[1]);
+			if (c.length == 3) {
+				competitionData.getAuthorVotes().remove(c[1]);
+			} else {
+				// Messages sent in the prior votes channel are Author ID : Ticket #. So if user
+				// with ID 12345 authors a vote for the message with ID 09876, then the message
+				// will say:
+				// 12345 09876
+				competitionData.getAuthorVotes().put(c[0], c[1]);
+			}
 		}
 
 		jda.addEventListener(new EventListener() {
@@ -88,16 +93,25 @@ public class BotLauncher {
 						e.getMessage().reply("Congratulations! Your submission is complete. Check the "
 								+ competitionChannel.getAsMention() + '.').queue();
 					}
+				} else if (event instanceof ButtonInteractionEvent) {
+					var e = (ButtonInteractionEvent) event;
+					if (e.getComponentId().startsWith("V-") && e.getChannel().getIdLong() == COMPETITION_CHANNEL_ID) {
+						var priorVotesChannel = e.getGuild().getTextChannelById(PRIOR_VOTES_CHANNEL);
+						// Author ID : Ticket #
+						priorVotesChannel.sendMessage(e.getUser().getId() + ' ' + e.getComponentId().substring(2))
+								.complete();
+						competitionData.getAuthorVotes().put(e.getUser().getId(), e.getComponentId().substring(2));
+					} else if (e.getComponentId().equals("rescind")) {
+						if (e.getComponentId().startsWith("R-")
+								&& e.getChannel().getIdLong() == COMPETITION_CHANNEL_ID) {
+							priorVotesChannel
+									.sendMessage(
+											"REMOVE: " + e.getUser().getId() + ' ' + e.getComponentId().substring(2))
+									.complete();
+							competitionData.getAuthorVotes().remove(e.getUser().getId());
+						}
+					}
 				}
-//				else if (event instanceof ButtonInteractionEvent) {
-//					var e = (ButtonInteractionEvent) event;
-//					if (e.getComponentId().equals("upvote")) {
-//						var priorVotesChannel = e.getGuild().getTextChannelById(PRIOR_VOTES_CHANNEL);
-//
-//					} else if (e.getComponentId().equals("rescind")) {
-//						// IMPLEMENT User pressed "remove upvote."
-//					}
-//				}
 			}
 		});
 

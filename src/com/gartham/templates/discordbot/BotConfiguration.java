@@ -13,7 +13,7 @@ public class BotConfiguration {
 	 */
 
 	public BotConfiguration(CLIParams cmdLineArguments) {
-		token = cmdLineArguments.readString("", "--token");
+		token = cmdLineArguments.readString("", "--token", "-t");
 	}
 
 	private final String token;

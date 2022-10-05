@@ -1,5 +1,11 @@
 package com.gartham.templates.discordbot;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
+
 import javax.security.auth.login.LoginException;
 
 import org.alixia.javalibrary.parsers.cli.CLIParams;
@@ -43,9 +49,23 @@ public class BotLauncher {
 			String[] c = m.getContentRaw().split(" ");
 			competitionData.getSubmissions().put(c[0], new Submission(c[1], c[0]));
 		}
+		
+		List<Message> messageList = new ArrayList<>();
+		try {
+		    messageList = priorVotesChannel.getIterableHistory().takeAsync(1000) // Collect 1000 messages
+		            .thenApply(list -> list.stream()
+		                // use .filter() here to cut down on the amount of messages
+		                .collect(Collectors.toList()))
+		            .get();
+		} catch (InterruptedException e) {
+		    e.printStackTrace();
+		} catch (ExecutionException e) {
+		    e.printStackTrace();
+		}
 
-		// TODO Reverse history scanning.
-		for (Message m : priorVotesChannel.getIterableHistory()) {
+		Collections.reverse(messageList);
+
+		for (Message m : messageList) {
 			String[] c = m.getContentRaw().split(" ");
 			if (c.length == 3) {
 				competitionData.getAuthorVotes().remove(c[1]);
@@ -56,7 +76,23 @@ public class BotLauncher {
 				// 12345 09876
 				competitionData.getAuthorVotes().put(c[0], c[1]);
 			}
-		}
+		}	
+		
+
+		// TODO Reverse history scanning.
+//		for (Message m : priorVotesChannel.getIterableHistory().takeAsync(Integer.MAX_VALUE)
+//				.thenApply((list -> list.stream().collect(Collectors.toList()).get()))) {
+//			String[] c = m.getContentRaw().split(" ");
+//			if (c.length == 3) {
+//				competitionData.getAuthorVotes().remove(c[1]);
+//			} else {
+//				// Messages sent in the prior votes channel are Author ID : Ticket #. So if user
+//				// with ID 12345 authors a vote for the message with ID 09876, then the message
+//				// will say:
+//				// 12345 09876
+//				competitionData.getAuthorVotes().put(c[0], c[1]);
+//			}
+//		}
 
 		jda.addEventListener(new EventListener() {
 			@Override

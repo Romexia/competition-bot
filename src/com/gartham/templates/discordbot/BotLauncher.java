@@ -36,6 +36,8 @@ public class BotLauncher {
 		JDA jda = JDABuilder.createDefault(config.getToken(), GatewayIntent.getIntents(GatewayIntent.ALL_INTENTS))
 				.build();
 		jda.awaitReady();
+		
+		jda.upsertCommand("notifmsg", "Post message to let people know where to subit").queue();
 
 		System.out.println("Connected to Discord. Loading all competition data...");
 		var competitionChannel = jda.getTextChannelById(COMPETITION_CHANNEL_ID);

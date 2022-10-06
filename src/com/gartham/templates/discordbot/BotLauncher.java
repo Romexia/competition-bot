@@ -9,6 +9,7 @@ import org.alixia.javalibrary.parsers.cli.CLIParams;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.entities.ChannelType;
+import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.MessageHistory;
 import net.dv8tion.jda.api.events.GenericEvent;
@@ -23,7 +24,12 @@ public class BotLauncher {
 
 	public static final long COMPETITION_CHANNEL_ID = 1026917081570099220l, DATA_CHANNEL_ID = 1026917114772197457l,
 			PRIOR_VOTES_CHANNEL = 1026929153896890408l, UPVOTE_EMOJI_ID = 1026927534769700874l,
-			DOWNVOTE_EMOJI_ID = 1026927919773261835l;
+			DOWNVOTE_EMOJI_ID = 1026927919773261835l,
+			REQUIRED_ROLE_LIST[] = { 693388028118433844l, 710348685116178484l, 682614550679388181l, 931460874328215602l,
+					866395351267541022l, 685192919837311033l, 694388915171229706l, 684897225322528820l,
+					694387959780212788l, 684875273061269602l, 688318644358610955l, 682614599899676741l,
+					687053687365173339l, 714631960718344223l, 683184911867445281l, 694387959780212788l,
+					684897225322528820l };
 
 	private static CompetitionData competitionData = new CompetitionData();
 
@@ -41,16 +47,22 @@ public class BotLauncher {
 		var dataChannel = jda.getTextChannelById(DATA_CHANNEL_ID);
 		var priorVotesChannel = jda.getTextChannelById(PRIOR_VOTES_CHANNEL);
 
+		System.out.println("Acquired channels!");
+
 		// Load up all submissions using the data channel, then load up all prior votes
 		// using the prior votes channel.
 
 		// Data channel we can scan in reverse-chronological order (scrolling UP the
 		// channel); this is okay.
+
+		System.out.println("\nLoading Data Channel (Submissions)");
 		for (Message m : dataChannel.getIterableHistory()) {
 			String[] c = m.getContentRaw().split(" ");
 			competitionData.getSubmissions().put(c[0], new Submission(c[1], c[0]));
 		}
+		System.out.println("\tComplete");
 
+		System.out.println("Loading prior-votes channel...");
 		// priorVotesChannel we need to either store extra data (annoying) or scan DOWN
 		// the channel. This was fixed in the previous commit. I have modified the code
 		// to be more efficient (and work better):
@@ -96,6 +108,7 @@ public class BotLauncher {
 					competitionData.getAuthorVotes().put(c[0], c[1]);
 			}
 		}
+		System.out.println("\tComplete!");
 
 		jda.addEventListener(new EventListener() {
 			@Override
@@ -106,6 +119,23 @@ public class BotLauncher {
 					if (e.getAuthor().isBot())
 						return;
 					if (e.getChannelType() == ChannelType.PRIVATE) {
+						Guild g = competitionChannel.getGuild();
+						if (!g.isMember(e.getAuthor())) {
+							e.getMessage().reply("You have to be in Gartham's Server to be able to run that command.")
+									.queue();
+							return;
+						}
+						var roles = g.getMember(e.getAuthor()).getRoles();
+						BLK: {
+							for (var v : roles)
+								for (var c : REQUIRED_ROLE_LIST)
+									if (v.getIdLong() == c)
+										break BLK;
+							e.getMessage().reply(
+									"You need to have at least Member to be able to participate in competition events.")
+									.queue();
+							return;
+						}
 						if (competitionData.getSubmissions().containsKey(e.getAuthor().getId())) {
 							e.getMessage().reply(
 									"You've already submitted a piece for this competition! You can't submit another. :(")

@@ -1,6 +1,8 @@
 package com.gartham.templates.discordbot;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import javax.security.auth.login.LoginException;
 
@@ -29,7 +31,7 @@ public class BotLauncher {
 					866395351267541022l, 685192919837311033l, 694388915171229706l, 684897225322528820l,
 					694387959780212788l, 684875273061269602l, 688318644358610955l, 682614599899676741l,
 					687053687365173339l, 714631960718344223l, 683184911867445281l, 694387959780212788l,
-					684897225322528820l };
+					684897225322528820l, 1026924591572074496l };
 
 	private static CompetitionData competitionData = new CompetitionData();
 
@@ -58,7 +60,7 @@ public class BotLauncher {
 		System.out.println("\nLoading Data Channel (Submissions)");
 		for (Message m : dataChannel.getIterableHistory()) {
 			String[] c = m.getContentRaw().split(" ");
-			competitionData.getSubmissions().put(c[0], new Submission(c[1], c[0]));
+			competitionData.getSubmissions().put(c[0], new Submission(c[1], c[0], m.getId()));
 		}
 		System.out.println("\tComplete");
 
@@ -110,6 +112,17 @@ public class BotLauncher {
 		}
 		System.out.println("\tComplete!");
 
+		System.out.println("Current Rankings: ");
+		Map<Submission, Integer> count = new HashMap<>();
+		for (var v : competitionData.getSubmissions().entrySet())
+			count.put(v.getValue(), 0);
+		for (var v : competitionData.getAuthorVotes().entrySet())
+			for (var c : competitionData.getSubmissions().entrySet())
+				if (c.getValue().getSubmissionDataMsgID().equals(v.getValue()))
+					count.put(c.getValue(), count.get(c.getValue()) + 1);
+		for (var v : count.entrySet())
+			System.out.println("\t<@" + v.getKey().getAuthorID() + ">: " + v.getValue());
+
 		jda.addEventListener(new EventListener() {
 			@Override
 			public void onEvent(GenericEvent event) {
@@ -158,7 +171,7 @@ public class BotLauncher {
 						dataMessage.editMessage(e.getAuthor().getId() + ' ' + competitionMessage.getId()).queue();
 
 						competitionData.getSubmissions().put(e.getAuthor().getId(),
-								new Submission(competitionMessage.getId(), e.getAuthor().getId()));
+								new Submission(competitionMessage.getId(), e.getAuthor().getId(), dataMessage.getId()));
 						e.getMessage().reply("Congratulations! Your submission is complete. Check the "
 								+ competitionChannel.getAsMention() + '.').queue();
 					}

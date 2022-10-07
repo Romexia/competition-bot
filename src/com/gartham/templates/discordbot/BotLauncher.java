@@ -2,6 +2,7 @@ package com.gartham.templates.discordbot;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
 
 import javax.security.auth.login.LoginException;
@@ -21,10 +22,11 @@ import net.dv8tion.jda.api.hooks.EventListener;
 import net.dv8tion.jda.api.interactions.components.ActionRow;
 import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import net.dv8tion.jda.api.requests.GatewayIntent;
+import net.dv8tion.jda.api.utils.MemberCachePolicy;
 
 public class BotLauncher {
 
-	public static final long COMPETITION_CHANNEL_ID = 1026917081570099220l, DATA_CHANNEL_ID = 1026917114772197457l,
+	public static final long COMPETITION_CHANNEL_ID = 1027732441466683463l, DATA_CHANNEL_ID = 1026917114772197457l,
 			PRIOR_VOTES_CHANNEL = 1026929153896890408l, UPVOTE_EMOJI_ID = 1026927534769700874l,
 			DOWNVOTE_EMOJI_ID = 1026927919773261835l,
 			REQUIRED_ROLE_LIST[] = { 693388028118433844l, 710348685116178484l, 682614550679388181l, 931460874328215602l,
@@ -39,7 +41,7 @@ public class BotLauncher {
 		BotConfiguration config = new BotConfiguration(new CLIParams(args));
 
 		JDA jda = JDABuilder.createDefault(config.getToken(), GatewayIntent.getIntents(GatewayIntent.ALL_INTENTS))
-				.build();
+				.setMemberCachePolicy(MemberCachePolicy.ALL).build();
 		jda.awaitReady();
 
 		jda.upsertCommand("notifmsg", "Post message to let people know where to subit").queue();
@@ -48,8 +50,12 @@ public class BotLauncher {
 		var competitionChannel = jda.getTextChannelById(COMPETITION_CHANNEL_ID);
 		var dataChannel = jda.getTextChannelById(DATA_CHANNEL_ID);
 		var priorVotesChannel = jda.getTextChannelById(PRIOR_VOTES_CHANNEL);
-
 		System.out.println("Acquired channels!");
+
+		System.out.println("Loading all users in " + competitionChannel.getGuild().getName());
+		var users = competitionChannel.getGuild().loadMembers().get();
+		System.out.println(
+				"Loaded: " + users.size() + " users!!! Is server loaded? " + competitionChannel.getGuild().isLoaded());
 
 		// Load up all submissions using the data channel, then load up all prior votes
 		// using the prior votes channel.
@@ -92,12 +98,12 @@ public class BotLauncher {
 			if (messages.size() == 0)
 				break;
 
-			// "For each message, `m`, inside `messages`...
-			for (Message m : messages) {
+			for (ListIterator<Message> iterator = messages.listIterator(messages.size()); iterator.hasPrevious();) {
 				// ... split the textual content of `m` by spaces. Store the resulting array of
 				// parts into `c`.
-				String[] c = m.getContentRaw().split(" ");// Returns an array. If the message, for some reason, has 0
-															// spaces, the array will have one element.
+				String[] c = iterator.previous().getContentRaw().split(" ");// Returns an array. If the message, for
+																			// some reason, has 0
+				// spaces, the array will have one element.
 
 				// If the array had two spaces, it SHOULD be a message that looks something like
 				// this:
@@ -178,8 +184,6 @@ public class BotLauncher {
 				} else if (event instanceof ButtonInteractionEvent) {
 					var e = (ButtonInteractionEvent) event;
 					if (e.getComponentId().startsWith("V-") && e.getChannel().getIdLong() == COMPETITION_CHANNEL_ID) {
-						var priorVotesChannel = e.getGuild().getTextChannelById(PRIOR_VOTES_CHANNEL);
-
 						if (competitionData.getAuthorVotes().containsKey(e.getUser().getId()) && competitionData
 								.getAuthorVotes().get(e.getUser().getId()).equals(e.getComponentId().substring(2))) {
 							e.reply("You already voted for this message!!!").setEphemeral(true).queue();
